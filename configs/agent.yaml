@@ -1,0 +1,13 @@
+max_steps: 1
+no_call_marker: NO_CALL_NEEDED
+# Applied to every LLM call the agent makes (tool-use loop, reflection/
+# procedure generation, property rating) -- Z.ai's free endpoint has shown
+# both timeouts and sustained rate-limiting under load.
+api_max_retries: 6
+api_retry_backoff_seconds: 5
+api_retry_backoff_cap_seconds: 60
+# Spacing between sequential LLM calls the agent makes for the SAME item
+# (e.g. solve -> reflection -> procedure -> property-rating for one
+# experience) -- distinct from inter_task_delay_seconds in
+# configs/experiments.yaml, which spaces different tasks/items apart.
+inter_call_delay_seconds: 2

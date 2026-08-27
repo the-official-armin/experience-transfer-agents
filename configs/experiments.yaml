@@ -1,0 +1,24 @@
+baseline_pilot:
+  condition: baseline
+  task_source: tasks/test_tasks/tasks.jsonl
+  seed: 42
+  tasks_per_category: 5
+  inter_task_delay_seconds: 2
+  output_path: data/results/baseline_pilot.jsonl
+  near_floor_ceiling_flag: 0.05
+
+noise_floor:
+  condition: baseline
+  task_source: tasks/test_tasks/tasks.jsonl
+  seed: 42
+  repeats: 3  # 1 task per shift_category (4) x 3 repeats = 12 trials, within the 10-15 target
+  inter_task_delay_seconds: 2
+  output_path: data/results/noise_floor.jsonl
+
+generate_experiences:
+  condition: baseline
+  task_source: tasks/experience_tasks/tasks.jsonl
+  seed: 42
+  tasks_per_category: 8  # 8 x 4 categories = 32, within the 20-50 target
+  inter_task_delay_seconds: 3  # trimmed from 5s -- regenerate is 3 calls/exp instead of 4, less load
+  output_path: data/experiences/experiences.jsonl

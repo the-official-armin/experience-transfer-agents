@@ -1,0 +1,14 @@
+provider: zai
+model: glm-4.7-flash
+base_url: https://api.z.ai/api/paas/v4/
+api_key_env: GLM_API_KEY
+temperature: 0
+# GLM-4.7-Flash spends a variable, sometimes large chunk of this budget on
+# hidden reasoning tokens before writing visible content -- too tight a
+# budget truncates the answer to empty, which can silently mis-grade as
+# success on no-call-expected tasks, or as null properties on the experience
+# property-rating call. Observed reasoning-token usage: 140-400 on simple
+# tool-calling tasks, but up to ~1000 on the property-rating prompt
+# specifically. Keep well above the highest observed usage across ALL call
+# types the agent makes (tool loop, reflection, procedure, property rating).
+max_tokens: 4096
