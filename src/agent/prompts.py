@@ -19,14 +19,23 @@ def _format_tool(tool):
     )
 
 
-def build_system_prompt(tools, no_call_marker="NO_CALL_NEEDED"):
+def build_system_prompt(tools, no_call_marker="NO_CALL_NEEDED", experience_text=None):
     tool_list = "\n\n".join(_format_tool(t) for t in tools)
+
+    experience_block = ""
+    if experience_text:
+        experience_block = f"""
+Relevant past experience that may help with this task:
+
+{experience_text}
+
+"""
 
     return f"""
 You are a tool-using agent. You have access to the following tool(s):
 
 {tool_list}
-
+{experience_block}
 You must follow this format exactly.
 
 If a tool call is needed, output one block per call:

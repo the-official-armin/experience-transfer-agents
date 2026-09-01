@@ -15,12 +15,14 @@ idna==3.19
 Jinja2==3.1.6
 markdown-it-py==4.2.0
 MarkupSafe==3.0.3
+matplotlib==3.11.1
 mdurl==0.1.2
 mpmath==1.3.0
 networkx==3.6.1
-numpy==2.4.6
+numpy==1.26.4
 openai==3.3.1
 packaging==26.3
+pandas==3.0.5
 python-dotenv==1.2.3
 psutil==7.2.2
 Pygments==2.21.0
@@ -30,6 +32,9 @@ regex==2026.7.19
 requests==2.34.2
 rich==15.0.0
 safetensors==0.8.0
+scikit-learn==1.9.0
+scipy==1.17.1
+sentence-transformers==3.0.1  # pinned below latest -- torch 2.2.2 (still needed by the vestigial local-HF path) requires it
 shellingham==1.5.4
 sympy==1.14.0
 tokenizers==0.22.2

@@ -22,3 +22,30 @@ generate_experiences:
   tasks_per_category: 8  # 8 x 4 categories = 32, within the 20-50 target
   inter_task_delay_seconds: 3  # trimmed from 5s -- regenerate is 3 calls/exp instead of 4, less load
   output_path: data/experiences/experiences.jsonl
+
+baseline_full:
+  condition: baseline
+  task_source: tasks/test_tasks/tasks.jsonl  # ALL 280 tasks, no per-category sampling
+  inter_task_delay_seconds: 3
+  output_path: data/results/baseline_full.jsonl
+  ceiling_flag: 0.90  # per-category threshold; expected/fine for `familiar`, a real problem elsewhere
+
+conditions_pilot:
+  seed: 42
+  task_source: tasks/test_tasks/tasks.jsonl
+  experience_bank_path: data/experiences/experiences.jsonl
+  experience_task_source: tasks/experience_tasks/tasks.jsonl
+  baseline_results_path: data/results/baseline_full.jsonl
+  inter_task_delay_seconds: 3
+  output_path: data/results/conditions_pilot.jsonl
+
+conditions_full:
+  seed: 42
+  task_source: tasks/test_tasks/tasks.jsonl
+  experience_bank_path: data/experiences/experiences.jsonl
+  experience_task_source: tasks/experience_tasks/tasks.jsonl
+  baseline_results_path: data/results/baseline_full.jsonl
+  pilot_path: data/results/conditions_pilot.jsonl  # seeded in, not recomputed
+  inter_task_delay_seconds: 3
+  target_total_tasks: 100  # all 26 hard tasks + ~74 balanced easy tasks -> ~200 pairs
+  output_path: data/results/conditions_full.jsonl

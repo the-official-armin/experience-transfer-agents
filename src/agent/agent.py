@@ -93,10 +93,11 @@ class Agent:
         )
         return content, response.usage, response.model, choice.finish_reason, reasoning_tokens, attempt - 1
 
-    def run(self, task):
+    def run(self, task, experience=None, representation="raw"):
         no_call_marker = self.agent_config.get("no_call_marker", "NO_CALL_NEEDED")
         max_steps = self.agent_config.get("max_steps", 1)
-        system_prompt = build_system_prompt(task["tools_available"], no_call_marker)
+        experience_text = experience["representations"][representation] if experience else None
+        system_prompt = build_system_prompt(task["tools_available"], no_call_marker, experience_text)
 
         messages = [
             {"role": "system", "content": system_prompt},
