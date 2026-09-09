@@ -2,6 +2,8 @@
 
 **Status: FINAL. Protocol frozen as of Day 3 (see §14).** This is the primary source for the paper's Results and Limitations sections. Confidence level is stated explicitly per finding — some are well-established, some are candidate/exploratory, and that distinction is preserved throughout rather than flattened. §1-9 are the Day 1/2 record (preserved as originally written, with inline pointers where Day 3 work updates or resolves them); §10-14 are Day 3.
 
+**Post-freeze correction, 2026-09-05 (§12):** a direct data query after the freeze found §12's "0 positive" claim for distractor_tool's combined total was wrong (representation-crossing's 4 positive rows were omitted from the sum). Fixed in place in §12 with the error shown, not silently edited — the freeze covers the experimental design (conditions, splits, feature set), not a guarantee against transcription errors in reporting already-collected data. The underlying statistical test (§12's Fisher's exact result) is unaffected; the qualitative framing is corrected and, if anything, sharpened.
+
 ---
 
 ## 1. Infrastructure & Calibration
@@ -194,7 +196,13 @@ The Δ(E,T) classifier's feature importances remain coherent with known findings
 
 **Action:** ran oracle + retrieved on the remaining 36 of 60 distractor_tool test tasks never before tested under either condition (24 already covered) — exhausting the entire category's test pool, so there's no ambiguity about whether more sampling would have helped further.
 
-**Result: 11 new negative flips, ZERO new positive flips**, out of 72 new pairs. Combined with all prior distractor_tool data (including representation-crossing's distractor_tool rows): **15 negative / 0 positive out of 131 pairs (11.5%)**.
+**Result: 11 new negative flips, zero new positive flips**, out of the 72 new oversample pairs specifically.
+
+**Correction (found post-hoc via a direct data query, 2026-09-05):** the combined total stated here originally read "15 negative / 0 positive out of 131 pairs" — that 0 was wrong. It correctly summed the Phase 1 (0 positive/4 negative, 47 pairs) and oversample (0 positive/11 negative, 72 pairs) batches, but silently forgot representation-crossing's 12 distractor_tool rows (Day 2, Step 1, oracle-only), which include **4 positive-transfer instances**: `bfcl_irrelevance_115` succeeded under all 3 representations, `bfcl_irrelevance_182` succeeded under `procedure` only. Correct combined total: **4 positive / 15 negative / 112 zero, out of 131 pairs**.
+
+**This does not change the statistical test below** — Fisher's exact test compares negative-count (15) against non-negative-count (116), so the positive/zero split within "non-negative" doesn't enter the calculation; the p-value, odds ratio, and CI are unaffected and correct as stated.
+
+**It does change, and sharpen, the qualitative story.** Split by condition: **oracle has 4 positive / 5 negative (of 72)**; **retrieved has 0 positive / 10 negative (of 59)**. distractor_tool is not uniformly a "pure negative transfer" category — that description is only accurate for the `retrieved` condition specifically. Under `oracle`, both directions occur. This actually strengthens §11.6/§13.2's oracle-vs-retrieved asymmetry finding rather than undermining it: retrieved's complete absence of positive cases here is a more extreme version of the same pattern already documented, not a new contradiction.
 
 **Fisher's exact test, final (supersedes §7's number):**
 
