@@ -18,6 +18,18 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 
+# Text-only size bump for paper legibility -- does not touch colors, line
+# widths, marker sizes, or figure dimensions.
+plt.rcParams.update({
+    "font.size": 14,
+    "axes.titlesize": 16,
+    "axes.labelsize": 14,
+    "xtick.labelsize": 12,
+    "ytick.labelsize": 12,
+    "legend.fontsize": 12,
+    "figure.titlesize": 18,
+})
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from src.analysis.features import CLUSTERED_PROPERTY_FEATURES, build_dataset
@@ -67,7 +79,7 @@ def fig_transfer_by_category(df, path):
         ax.set_title(condition)
         ax.set_ylabel("Delta(E,T) flip count")
 
-    axes[0].legend(loc="upper right", fontsize=8)
+    axes[0].legend(loc="upper right", fontsize=11)
     fig.suptitle(f"Transfer gain by shift_category (n={len(df)} pairs, final enriched dataset)")
     fig.tight_layout()
     fig.savefig(path, dpi=150)
@@ -98,7 +110,7 @@ def fig_delta_eff_calibration(train_df, held_out_df, path):
     ax.set_xlabel("actual Delta_eff (completion tokens)")
     ax.set_ylabel("predicted Delta_eff (completion tokens)")
     ax.set_title(f"Magnitude regression (v2, n={len(y_held_out)})\nMAE={np.mean(np.abs(y_held_out-y_pred)):.1f} -- loses to baselines")
-    ax.legend(fontsize=8)
+    ax.legend(fontsize=11)
 
     ax = axes[1]
     from sklearn.metrics import confusion_matrix
@@ -155,9 +167,9 @@ def fig_property_correlation(df, path):
     from matplotlib.patches import Patch
     ax.legend(handles=[Patch(color="#4C72B0", label="primary/reliable"),
                         Patch(color="#C44E52", label="clustered (ablation only)")],
-               loc="lower right", fontsize=8)
+               loc="lower right", fontsize=11)
     fig.tight_layout()
-    fig.savefig(path, dpi=150)
+    fig.savefig(path, dpi=150, bbox_inches="tight")
     plt.close(fig)
 
 
@@ -217,10 +229,10 @@ def fig_oracle_vs_retrieved_gap(df, path):
     ax.set_xticklabels([f"oracle\n(n={len(oracle_eff)})", f"retrieved\n(n={len(retrieved_eff)})"])
     ax.set_ylabel("Delta_eff completion-token delta")
     ax.set_title("Efficiency: oracle vs. retrieved (matched-success)")
-    ax.legend(fontsize=8)
+    ax.legend(fontsize=11)
 
     fig.tight_layout()
-    fig.savefig(path, dpi=150)
+    fig.savefig(path, dpi=150, bbox_inches="tight")
     plt.close(fig)
 
 
