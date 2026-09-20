@@ -1,261 +1,86 @@
-# Experience-to-Task Transfer in Tool-Using LLM Agents
+# Experience → Task Transfer in Tool-Using LLM Agents
 
-Research code for studying whether prior experience from one tool-use task can improve or harm an LLM agent's performance on a genuinely new task.
+Research code studying whether prior experience from one tool-use task can help, hurt, or have no effect on an LLM agent's performance on a genuinely new task — and whether that effect can be predicted before the new task is even run.
 
-**Target venue:** IEEE ICA 2026
+**Target venue:** IEEE ICA 2026 (6pp regular paper)
 **Submission deadline:** September 15, 2026
+**Status:** Data collection and analysis complete. Experimental protocol is **frozen** (see [`docs/findings_summary.md`](docs/findings_summary.md) §14) — no further changes to conditions, splits, or feature sets. `docs/findings_summary.md` is the authoritative, confidence-graded results writeup this repo's code produced.
 
 ---
 
 ## Research Question
 
-The central question of this project is:
+> Given a specific prior experience `E` and a specific target task `T`, can we predict — **before running `T`** — whether transferring `E` will help, hurt, or do nothing, and by how much?
 
-> **Can an open LLM agent use experience from previous tasks to become more accurate and/or efficient on genuinely new tasks?**
+Everything else in this project (when/why transfer works, whether representation matters, which experience properties predict transfer) is evidence feeding this one predictive question, evaluated at the individual **experience–task pair** level — never pooled across a task family or memory bank.
 
-More specifically, we study:
-
-* When does a particular experience help a particular target task?
-* When does experience have no effect or cause negative transfer?
-* How does transfer change under different task shifts?
-* Does the representation of an experience affect transfer?
-* Which properties of an experience are associated with transfer?
-* Can we predict the effect of a specific experience on a specific target task before execution?
-
-The key unit of analysis is an **individual experience–task pair**, rather than an aggregate task family or memory bank.
+Full research design, hard constraints, and rationale live in [`CLAUDE.md`](CLAUDE.md). This README is the practical entry point: what was built, what was found, and how to run it.
 
 ---
 
-## Core Definitions
+## Key Results
 
-### Experience
+Full detail, statistics, and confidence levels for every item below are in [`docs/findings_summary.md`](docs/findings_summary.md). Numbers here are final (post-freeze).
 
-An **experience (E)** is a record of an agent's interaction with a previous task, including its task context, actions, observations, tool calls, and outcome.
+- **Baseline ceiling effect.** GLM-4.7-Flash solves 91% (254/280) of held-out tasks with no experience at all. Only 26 tasks are baseline-failures — the only pool where a success-flip can be observed at all. This is why the project added a second outcome variable (`Δ_eff`, effort/efficiency) that isn't ceiling-bound.
+- **The hero claim (predicting Δ(E,T) magnitude/direction) does not hold.** Neither magnitude regression nor ternary success-flip classification beat the majority-class or "Break It Down" utility-score baselines, confirmed on the final enriched dataset. Reported as a negative result, not reframed as a win.
+- **One real, narrower positive result: predicting the *sign* of efficiency transfer.** Given that an experience is already matched-success, whether it makes the task cheaper or more expensive (completion-token direction) is predictable above both baselines — macro-F1 0.394 vs. best baseline 0.237 (v2, final split) — and the margin *widens* with more data rather than shrinking.
+- **`distractor_tool` negative transfer — confirmed, not borderline.** Tasks requiring the agent to *decline* a tool call see significantly more negative transfer when injected with an irrelevant experience: 15/131 negative flips vs. 3/192 in the other three shift categories. Fisher's exact test p = 0.00024, odds ratio 8.15, 95% CI [2.22, 44.56] — survives Bonferroni correction across the 4 categories. Mechanistically verified by reading the actual failing trajectories, not just the aggregate stat.
+- **Retrieval quality is a minor factor; content transferability dominates.** Automatic (embedding) retrieval accounts for at most ~4% of the oracle-vs-baseline success gap on hard tasks. Growing the experience bank 3.7x (30→110) produced no measurable improvement in no-transfer rate under either oracle or retrieved selection — evidence against "the bank just needs more/better experiences" as the main story.
+- **4 of 9 experience properties (abstraction, specificity, composability, information_context) show persistent floor/ceiling clustering**, reconfirmed at 4x scale after three separate remediation attempts. Treated as a documented characteristic of BFCL's short, structurally homogeneous tasks, not a fixable prompting bug — used only as a secondary ablation feature, never silently included as if reliable.
+- **Known limitation, reported rather than patched:** the `oracle` condition's selection rule is a heuristic (tool/family-overlap scoring), and is measurably non-monotonic — more candidate experiences can produce a *worse* pick. Documented with a concrete example task, not hidden.
 
-### Transfer
+---
 
-**Transfer** occurs when a prior experience changes agent performance on a new task.
-
-### Transfer Gain
-
-For an experience `E` and target task `T`:
+## Repository Structure
 
 ```text
-Δ(E,T) = P(T | E) − P(T | ∅)
+experience-transfer-agents/
+├── CLAUDE.md                    — full research design spec, hard constraints, decision log
+├── README.md                    — this file
+├── requirements.txt
+│
+├── configs/
+│   ├── models.yaml               — pinned model, base_url, temperature, max_tokens
+│   ├── agent.yaml                 — max_steps, retry/backoff, inter-call delay
+│   └── experiments.yaml           — per-experiment task source, seed, output path
+│
+├── src/
+│   ├── agent/                     — instrumented agent loop (the only place that calls the API)
+│   ├── environment/                — task loading, exact-match evaluation (no LLM judge)
+│   ├── experience/                 — experience generation, raw/reflection/procedure, retrieval
+│   ├── experiments/                — condition runner (baseline/oracle/retrieved), result logging
+│   └── analysis/                   — Δ(E,T) / Δ_eff computation, 9-property features, predictor, stats
+│
+├── tasks/                          — adapted BFCL tasks; frozen experience-gen/held-out split
+├── data/
+│   ├── bfcl_raw/                   — original BFCL v4 category files
+│   ├── experiences/                — the 110-experience bank (JSONL)
+│   └── results/                    — raw, machine-written harness output (never hand-edited)
+│
+├── scripts/                        — reproducible CLI entry points (data collection + analysis)
+├── notebooks/                      — exploration/orchestration (calls into src/, not a second copy)
+│
+├── results/
+│   ├── processed/                  — scored (E,T) pairs, frozen predictor splits (v1/v2)
+│   ├── figures/                    — final paper figures
+│   └── tables/
+│
+├── docs/
+│   ├── findings_summary.md         — FINAL, confidence-graded results writeup (source of truth)
+│   ├── experiment_log.md           — running day-by-day dev/debugging log
+│   └── Research Plan.md            — original hypothesis and proposal
+│
+└── tests/                          — pytest suite (agent, evaluation, experience, features, predictor, statistics, transfer)
 ```
 
-where:
-
-* `P(T | E)` is performance when the experience is provided.
-* `P(T | ∅)` is performance without experience.
-
-Transfer is evaluated at the individual `(E,T)` pair level.
-
-### Task Shift
-
-Target tasks are categorized according to how they differ from experience-generation tasks:
-
-```text
-familiar
-novel_composition
-novel_tool
-distractor_tool
-```
-
-OOD tasks are currently excluded from the experimental design.
-
-### Experience Representations
-
-The same underlying trajectory can be represented as:
-
-* `raw` — the original trajectory
-* `reflection` — an LLM-generated summary/lesson
-* `procedure` — an LLM-generated step-by-step procedure
-
-All representations are derived from the same source trajectory to avoid confounding representation with experience content.
+`data/results/` (raw harness output) and `results/` (derived analysis output) are kept deliberately separate — the harness only ever writes to the former; analysis code reads it and writes to the latter.
 
 ---
 
-## Experimental Conditions
+## Setup
 
-The primary evaluation uses three conditions:
-
-### Baseline
-
-The agent solves the target task without prior experience.
-
-### Oracle
-
-The agent receives a deliberately selected best-matching experience.
-
-### Retrieved
-
-The agent receives the single experience selected by the fixed automatic retrieval system.
-
-The oracle and retrieved conditions are evaluated separately so that retrieval quality can be distinguished from the underlying transferability of an experience.
-
----
-
-## Efficiency
-
-In addition to task accuracy, the project measures agent execution efficiency.
-
-Logged execution measures include:
-
-* prompt tokens
-* completion tokens
-* reasoning tokens
-* number of tool calls
-* number of steps
-* retry count
-
-Efficiency analysis is performed alongside accuracy so that an experience can be evaluated not only by whether it makes the agent correct, but also by whether it changes the cost of reaching the solution.
-
----
-
-## Benchmark
-
-The project uses **BFCL v4 (Berkeley Function-Calling Leaderboard)** as the underlying tool-use benchmark.
-
-BFCL was selected because its tasks provide structured tool/API calls and exact-match evaluation, allowing success to be determined from gold tool calls rather than an LLM judge.
-
-The benchmark is adapted into the project's normalized task schema.
-
-Current adapted dataset:
-
-```text
-1,240 tasks
-```
-
-Frozen split:
-
-```text
-Experience-generation: 280
-Held-out test:         280
-Reserve:               680
-```
-
-The experience-generation and held-out test sets are disjoint.
-
----
-
-## Experience Bank
-
-Experiences are generated by allowing the agent to actually solve experience-generation tasks using the available tools.
-
-The current experience bank contains:
-
-```text
-110 experiences
-```
-
-Each experience contains:
-
-* source task
-* complete trajectory
-* raw representation
-* reflection representation
-* procedure representation
-* experience properties
-
-### Experience Properties
-
-The current schema records nine properties:
-
-1. abstraction
-2. specificity
-3. task structure
-4. tool dependence
-5. length
-6. number of steps
-7. success/failure
-8. composability
-9. information context
-
-Five properties are derived using deterministic/rule-based methods. Four semantic properties are generated using an LLM-based rating step.
-
-The current experience pool showed limited variance in the four LLM-rated semantic properties. These are therefore treated as exploratory/secondary features rather than assuming they are strong predictors.
-
----
-
-## Evaluation
-
-Task success is determined using exact-match evaluation against the benchmark's gold tool calls.
-
-The experiment explicitly avoids using an LLM judge as the primary correctness metric.
-
-For each evaluated `(E,T)` pair, the system records:
-
-```text
-task_id
-experience_id
-condition
-success
-prompt_tokens
-completion_tokens
-reasoning_tokens
-tool_call_count
-retry_count
-steps
-trajectory
-timestamp
-```
-
-Transfer is then computed per pair.
-
-A measured baseline noise floor is also recorded. An initial calibration measurement found an approximately **8% flip rate** across repeated trials, concentrated in one task involving choosing between similar tools. A follow-up recheck (15 more trials, including 3 more on that same task) found **0/15 flips** — the original result did not reproduce. Combined: 1/6 total trials on that task flipped. **Status: inconclusive at this sample size**, not a settled noise floor — treated as a hypothesis, not a confirmed guardrail, in the final writeup. See `docs/findings_summary.md` §1.
-
----
-
-## Experimental Workflow
-
-The intended workflow is:
-
-```text
-BFCL tasks
-    │
-    ├── experience-generation tasks
-    │          │
-    │          ▼
-    │      Agent solves tasks
-    │          │
-    │          ▼
-    │      Trajectories
-    │          │
-    │          ▼
-    │      Experience bank
-    │
-    └── held-out test tasks
-               │
-               ▼
-       ┌──────────────────┐
-       │ Baseline         │
-       │ Oracle           │
-       │ Retrieved        │
-       └──────────────────┘
-               │
-               ▼
-        Pairwise results
-               │
-        ┌──────┴──────┐
-        ▼             ▼
-      Δ(E,T)       Efficiency
-        │             │
-        └──────┬──────┘
-               ▼
-          Transfer analysis
-               │
-               ▼
-       Transfer prediction
-```
-
----
-
-## Reproducibility
-
-The project uses Python 3.11.
-
-A virtual environment is recommended:
+Requires Python 3.11.
 
 ```bash
 python3.11 -m venv .venv
@@ -263,99 +88,106 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-Create a local environment file from:
+Create a `.env` file in the repo root containing your API key:
 
 ```text
-.env.example
+GLM_API_KEY=<your key>
 ```
 
-API credentials must **never** be committed to the repository.
+Never commit `.env` or any file containing credentials (already covered by `.gitignore`).
 
-Experiments should be reproducible from:
+Before running any evaluation, verify the served model matches `configs/models.yaml` — every collection script (`scripts/run_*.py`) does this automatically on its first call and raises `SystemExit` on a mismatch rather than silently trusting drifted results.
 
-* configuration files
-* recorded random seeds
-* model/version information
-* benchmark/task versions
-* automatically saved result records
+---
 
-### Pinned versions
-
-* **Python:** 3.11 (`.venv` created with `python3.11 -m venv .venv`)
-* **Model:** `glm-4.7-flash` (Z.ai/Zhipu, open-weight, 30B/~3B active MoE) — pinned in `configs/models.yaml`, along with `base_url`, `temperature: 0`, and `max_tokens`. Every evaluation run verifies the API-served model matches this config before trusting results (see `configs/models.yaml`'s comments and any script printing `Model check OK`).
-* **All seeds** are set explicitly per script (`configs/experiments.yaml`'s `seed` fields; `SEED = 42` constants in `scripts/*.py` that don't read from a config) — never left to library defaults.
-* **Task/dataset versions:** BFCL v4, adapted via `scripts/adapt_bfcl.py`; the frozen experience-generation/held-out split lives in `tasks/split.json` (never modified after freezing, per Research Principle 3); the frozen predictor-specific pair split lives in `results/processed/predictor_split.json` (v1) and `predictor_split_v2.json` (v2, additive extension — v1's assignments are preserved exactly, never touched).
-
-### One-command reproduction (analysis only)
+## Reproducing the Analysis
 
 ```bash
 ./scripts/reproduce_analysis.sh
 ```
 
-Reproduces every downstream analysis output (scored `(E,T)` pairs, predictor training + baseline comparison, all final figures in `results/figures/`) from the raw data already collected this week (`data/results/*.jsonl`, `data/experiences/*.jsonl`). Deterministic given the same input files and seeds — safe to re-run; frozen splits are skipped, not overwritten.
+This deterministically rebuilds every downstream analysis artifact — scored `(E,T)` pairs, the predictor report (both targets, both baselines), and all final figures in `results/figures/` — from the raw data already collected (`data/results/*.jsonl`, `data/experiences/*.jsonl`). Frozen splits are skipped, never overwritten. Safe to re-run at any time.
 
-**This does not re-run the agent against the live API.** Data collection (generating experiences, running baseline/oracle/retrieved conditions) required live judgment calls and explicit API-budget gating at each step throughout the week — pilot before scale, checkpoint after each stage. To reproduce that side, run the individual `scripts/*.py` entry points in the order documented in `docs/findings_summary.md`, with the same `configs/*.yaml` and a `.env` containing `GLM_API_KEY`.
+**This does not call the live API.** Data collection (generating experiences; running baseline/oracle/retrieved conditions) required live judgment calls and explicit API-budget gating at each stage. To reproduce that side, run the individual `scripts/*.py` entry points in the order documented in `docs/findings_summary.md`, against the same `configs/*.yaml` and a `.env` with `GLM_API_KEY`.
+
+### Pinned versions
+
+- **Python:** 3.11
+- **Model:** `glm-4.7-flash` (Z.ai/Zhipu, open-weight, 30B total / ~3B active MoE) — pinned in `configs/models.yaml` along with `base_url`, `temperature: 0`, `max_tokens`. Single-model policy: the same model runs the agent, generates `reflection`/`procedure` representations, and rates experience properties.
+- **Seeds:** `42` everywhere task sampling occurs, set explicitly in `configs/experiments.yaml` / script constants — never left to a library default.
+- **Task/dataset versions:** BFCL v4, adapted via `scripts/adapt_bfcl.py`. The frozen experience-generation/held-out task split lives in `tasks/split.json` (never modified after freezing). The frozen predictor-pair split lives in `results/processed/predictor_split.json` (v1) and `predictor_split_v2.json` (v2 — additive extension; v1's assignments are preserved exactly).
 
 ---
 
-## Notebooks vs. Source Code
+## Experimental Design (condensed)
 
-Notebooks are used for:
+**Conditions:** `baseline` (no experience) / `oracle` (deliberately best-matched experience) / `retrieved` (automatic embedding retrieval, MiniLM cosine similarity, fixed before evaluation). Token/inference budget is matched and logged across all three.
 
-* experiment orchestration
-* exploration
-* visualization
-* inspecting results
-* developing analysis
+**Task shift categories** (increasing novelty relative to experience-generation tasks): `familiar` → `novel_composition` → `novel_tool` → `distractor_tool`. (`ood` is excluded from the current design.)
 
-Reusable experimental logic belongs in `src/`.
+**Experience representations**, all derived from the same source trajectory: `raw` (full trajectory) / `reflection` (LLM-generated summary) / `procedure` (LLM-generated step-by-step plan).
 
-A notebook should generally call existing project functions rather than contain a second implementation of the experiment.
+**Outcome variables:**
+- `Δ(E,T) = P(T|E) − P(T|∅)` — success-flip transfer gain, per pair.
+- `Δ_eff(E,T)` — efficiency transfer, defined only on completion tokens + steps + tool calls (never raw/input tokens, which trivially rise from injecting context regardless of benefit), computed on matched-success pairs only.
 
-For example:
+**Experience properties (9 logged per experience):** `length`, `num_steps`, `success_failure`, `task_structure`, `tool_dependence` (reliable) plus `abstraction`, `specificity`, `composability`, `information_context` (clustered — ablation-only, see Key Results).
 
-```python
-from src.experiments.runner import run_experiment
+Full definitions, hard constraints (frozen splits, fixed retrieval, matched budgets, etc.), and the reasoning behind each are in `CLAUDE.md`.
 
-results = run_experiment(config)
+---
+
+## Data Scale
+
+- **Benchmark:** BFCL v4 (Berkeley Function-Calling Leaderboard), adapted into this project's task schema. Ground truth is exact-match against the gold tool call — never an LLM judge.
+- **Adapted dataset:** 1,240 tasks → frozen split of 280 experience-generation / 280 held-out test / 680 reserve.
+- **Experience bank:** 110 experiences, each with all three representations and all 9 properties.
+- **Final scored dataset:** 323 `(E,T)` pairs across baseline/oracle/retrieved, all four shift categories, and the representation-crossing and `distractor_tool`-oversampling follow-ups.
+
+---
+
+## Testing
+
+```bash
+pytest
 ```
 
-If notebook logic becomes something that needs to be rerun reliably, it should be promoted into `src/` or `scripts/`.
+Covers transfer-gain computation, property extraction, the representation transformer, evaluation logic, and the predictor/statistics modules — written before spending API budget on the harness itself.
 
 ---
 
+## Documentation Map
+
+- [`docs/findings_summary.md`](docs/findings_summary.md) — **start here for results.** Final, confidence-graded writeup; the direct source for the paper's Results and Limitations sections.
+- [`docs/experiment_log.md`](docs/experiment_log.md) — running day-by-day log of what was tried, what broke, and how it was fixed. Historical record, not a polished summary.
+- [`docs/Research Plan.md`](docs/Research%20Plan.md) — the original hypothesis and proposal that motivated the project.
+- [`CLAUDE.md`](CLAUDE.md) — full research design spec: definitions, hard constraints, model/serving decisions, schema contracts.
 
 ---
 
 ## Research Principles
 
-This project follows several constraints:
-
-1. **Evaluate transfer at the individual `(E,T)` pair level.**
-2. **Keep experience-generation and held-out tasks disjoint.**
-3. **Freeze the test split before evaluation.**
-4. **Use exact-match task evaluation rather than an LLM judge.**
-5. **Match inference/token budgets across experimental conditions.**
-6. **Fix the retrieval method before evaluating transfer.**
-7. **Separate retrieval failure from genuine non-transfer.**
-8. **Use the same underlying trajectory when comparing experience representations.**
-9. **Keep exploratory analysis separate from confirmatory analysis.**
-10. **Report negative and null transfer rather than only successful cases.**
-11. **Do not silently reproduce contributions from related work as novel findings.**
-12. **Record experimental limitations rather than tuning them away after observing results.**
+1. Evaluate transfer at the individual `(E,T)` pair level — never pooled.
+2. Keep experience-generation and held-out tasks disjoint.
+3. Freeze the test split before evaluation; never modify it afterward.
+4. Use exact-match task evaluation, never an LLM judge.
+5. Match inference/token budgets across experimental conditions.
+6. Fix the retrieval method before evaluating transfer.
+7. Separate retrieval failure from genuine non-transfer.
+8. Use the same underlying trajectory when comparing experience representations.
+9. Keep exploratory analysis separate from confirmatory analysis.
+10. Report negative and null transfer, not only successful cases.
+11. Do not silently reproduce related work's contributions and present them as novel.
+12. Record experimental limitations rather than tuning them away after seeing results.
 
 ---
 
 ## Citation
 
-The final paper will document the benchmark, related work, experimental methodology, and any external models or tools used in the study.
-
-A citation file will be added as the paper and bibliography are finalized.
+The final paper will document the benchmark, related work, experimental methodology, and any external models or tools used. A citation file will be added once the paper and bibliography are finalized.
 
 ---
 
 ## License
 
-This repository is intended to contain research code and experiment artifacts. The repository license and redistribution terms will be finalized alongside the paper release.
-
-Benchmark data remains subject to the original benchmark's licensing and usage terms.
+This repository contains research code and experiment artifacts. Repository license and redistribution terms will be finalized alongside the paper release. Benchmark data remains subject to BFCL's original licensing and usage terms.
